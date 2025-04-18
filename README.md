@@ -30,10 +30,6 @@ A simple demo project to interact with OpenAI ChatGPT API in Unity.
 3. Add your OpenAI API key in the appropriate field.
 4. Press Play and start chatting with AI!
 
-## 🎥 Demo Preview
-
-![ChatGPT Unity Demo](./Assets/Media/chat-demo.gif)
-
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).
