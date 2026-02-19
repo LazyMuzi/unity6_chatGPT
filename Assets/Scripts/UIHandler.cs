@@ -6,27 +6,13 @@ using UnityEngine.UI;
 
 public class UIHandler : MonoBehaviour
 {
-    private ChatHelper _chatHelper;
+    private AIService _chatHelper;
     public TMP_InputField inputField;
     public TMP_Text text;
     public Button submitButton;
 
     private bool _loaded = false;
     private Coroutine _corLoadingAnim;
-
-    private void Start()
-    {
-        _chatHelper = FindObjectOfType<ChatHelper>();
-        submitButton.onClick.AddListener(SubmitButton);
-    }
-
-    private void SubmitButton()
-    {
-        if(!_chatHelper) return;
-
-        _corLoadingAnim =StartCoroutine(CorLoadingAnim());
-        _chatHelper.GetChatGPTResponse(inputField.text, ChatResponse);
-    }
 
     private IEnumerator CorLoadingAnim()
     {
