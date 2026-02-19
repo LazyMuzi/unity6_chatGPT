@@ -6,19 +6,31 @@ using Newtonsoft.Json;
 
 public class AIService : MonoBehaviour
 {
+    private const string PlaceholderKey = "REPLACE_WITH_REAL_KEY";
+
     [Header("API Settings")]
     [SerializeField] private string apiUrl = "https://api.openai.com/v1/chat/completions";
-    [SerializeField] private string apiKey = "REPLACE_WITH_REAL_KEY";
+    [SerializeField] private string apiKey = PlaceholderKey;
 
     [SerializeField] private string model = "gpt-4o-mini";
     [SerializeField] private int maxCompletionTokens = 120;
     [SerializeField] private float temperature = 0.7f;
+
+    public bool IsApiKeyValid =>
+        !string.IsNullOrWhiteSpace(apiKey) && apiKey != PlaceholderKey;
 
     public void GetChatResponse(
         string systemPrompt,
         string userInput,
         Action<string> callback)
     {
+        if (!IsApiKeyValid)
+        {
+            Debug.LogWarning("[AIService] API 키가 설정되지 않았습니다. Inspector에서 AIService의 apiKey를 입력해주세요.");
+            callback?.Invoke("......");
+            return;
+        }
+
         var requestData = new ChatRequest
         {
             model = model,
