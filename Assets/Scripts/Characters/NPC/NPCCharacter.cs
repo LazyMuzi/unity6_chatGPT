@@ -11,6 +11,7 @@ public class NPCCharacter : CharacterBase, IInteractable
     public NPCBrain brain;
 
     [SerializeField] private InteractionPromptUI promptUI;
+    [SerializeField] private SpeechBubbleUI speechBubble;
 
     [Header("Interaction Timing")]
     [SerializeField] private float lookDuration = 0.4f;
@@ -184,16 +185,43 @@ public class NPCCharacter : CharacterBase, IInteractable
         yield return playerLook;
         yield return npcLook;
 
-        ChatUI.Instance.Open(this, brain.profile.npcName);
+        string npcName = brain.profile.npcName;
+        ChatUI.Instance.Open(this, npcName);
 
         yield return new WaitForSeconds(dotsDelay);
 
-        string greeting = brain.relationship.GetGreeting();
-        ChatUI.Instance.UpdateGreeting(brain.profile.npcName, greeting);
+        if (brain.questHandler != null && brain.questHandler.HasPendingProposal())
+        {
+            string proposal = brain.questHandler.GetProposalMessage();
+            ChatUI.Instance.OpenQuestProposal(npcName, proposal);
+        }
+        else
+        {
+            string greeting = GetTimeAwareGreeting();
+            ChatUI.Instance.UpdateGreeting(npcName, greeting);
+        }
+    }
+
+    /// <summary>
+    /// 시간 경과 + 친밀도를 반영한 인사를 반환합니다.
+    /// </summary>
+    public string GetTimeAwareGreeting()
+    {
+        var tracker = brain.interactionTracker;
+        return brain.relationship.GetGreeting(
+            tracker.GetDaysSinceLastConversation(),
+            tracker.ConsecutiveDays,
+            tracker.HasTalkedToday());
     }
 
     public void OnInteractionEnd()
     {
+        if (speechBubble != null)
+        {
+            string farewell = brain.relationship.GetBubbleFarewell();
+            speechBubble.Show(farewell);
+        }
+
         isInteracting = false;
         homePosition = transform.position;
         TransitionTo(NPCState.Idle);
@@ -203,6 +231,10 @@ public class NPCCharacter : CharacterBase, IInteractable
     {
         if (isInteracting) return;
         promptUI.Show();
+
+        bool canDeliver = brain.questHandler != null && brain.questHandler.CanDeliverItem();
+        if (canDeliver)
+            promptUI.SetDeliverOption(true, () => DeliverInteract(PlayerCharacter.Instance));
     }
 
     public void HideInteractionPrompt()
@@ -210,14 +242,38 @@ public class NPCCharacter : CharacterBase, IInteractable
         promptUI.Hide();
     }
 
+    /// <summary>
+    /// 프롬프트 UI의 "전달하기" 버튼으로 호출. 아이템을 전달하고 완료 메시지를 표시합니다.
+    /// </summary>
+    public void DeliverInteract(PlayerCharacter player)
+    {
+        if (isInteracting) return;
+        StartCoroutine(DeliverInteractionSequence(player));
+    }
+
+    private IEnumerator DeliverInteractionSequence(PlayerCharacter player)
+    {
+        isInteracting = true;
+        TransitionTo(NPCState.Interacting);
+        player.IsInputLocked = true;
+
+        Coroutine playerLook = player.LookAtSmooth(transform, lookDuration);
+        Coroutine npcLook = LookAtSmooth(player.transform, lookDuration);
+
+        CameraManager.Instance.StartInteraction(player.transform, transform);
+
+        yield return playerLook;
+        yield return npcLook;
+
+        string npcName = brain.profile.npcName;
+        var result = brain.questHandler.CompleteQuest();
+
+        ChatUI.Instance.OpenDeliveryResult(this, npcName, result);
+    }
+
     public void SendPlayerMessage(string playerInput)
     {
         brain.HandlePlayerInteraction(playerInput);
-    }
-
-    public override void OnCharacterTouched()
-    {
-        base.OnCharacterTouched();
     }
 
     #endregion

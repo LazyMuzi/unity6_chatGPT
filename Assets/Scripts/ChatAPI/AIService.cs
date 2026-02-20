@@ -19,10 +19,12 @@ public class AIService : MonoBehaviour
     public bool IsApiKeyValid =>
         !string.IsNullOrWhiteSpace(apiKey) && apiKey != PlaceholderKey;
 
+    /// <param name="npcId">토큰 추적용 NPC 식별자. 빈 문자열이면 추적만 스킵.</param>
     public void GetChatResponse(
         string systemPrompt,
         string userInput,
-        Action<string> callback)
+        Action<string> callback,
+        string npcId = "")
     {
         if (!IsApiKeyValid)
         {
@@ -63,6 +65,8 @@ public class AIService : MonoBehaviour
                 var chatResponse =
                     JsonConvert.DeserializeObject<ChatResponse>(response.Text);
 
+                TrackUsage(npcId, chatResponse);
+
                 if (chatResponse?.choices != null &&
                     chatResponse.choices.Count > 0)
                 {
@@ -88,6 +92,22 @@ public class AIService : MonoBehaviour
         });
     }
 
+    private void TrackUsage(string npcId, ChatResponse response)
+    {
+        if (response?.usage == null) return;
+
+        var snapshot = new TokenTracker.UsageSnapshot
+        {
+            promptTokens = response.usage.prompt_tokens,
+            completionTokens = response.usage.completion_tokens,
+            cachedTokens = response.usage.prompt_tokens_details?.cached_tokens ?? 0
+        };
+
+        TokenTracker.Instance.Record(npcId, snapshot);
+    }
+
+    #region API Data Models
+
     [Serializable]
     public class Message
     {
@@ -108,6 +128,7 @@ public class AIService : MonoBehaviour
     public class ChatResponse
     {
         public List<Choice> choices;
+        public Usage usage;
     }
 
     [Serializable]
@@ -115,4 +136,21 @@ public class AIService : MonoBehaviour
     {
         public Message message;
     }
+
+    [Serializable]
+    public class Usage
+    {
+        public int prompt_tokens;
+        public int completion_tokens;
+        public int total_tokens;
+        public PromptTokensDetails prompt_tokens_details;
+    }
+
+    [Serializable]
+    public class PromptTokensDetails
+    {
+        public int cached_tokens;
+    }
+
+    #endregion
 }

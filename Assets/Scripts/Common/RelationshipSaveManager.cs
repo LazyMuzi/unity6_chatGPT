@@ -18,23 +18,6 @@ public class RelationshipSaveManager : MonoBehaviour
     [System.Serializable]
     private class NPCSaveData
     {
-        public int affinity;
-        public int totalConversations;
-        public string lastConversationDate = "";
-        public int consecutiveDays;
-        public string activeQuestId = "";
-        public int questProgress;
-    }
-
-    [System.Serializable]
-    private class SaveFile
-    {
-        public List<SaveEntry> entries = new();
-    }
-
-    [System.Serializable]
-    private class SaveEntry
-    {
         public string npcId;
         public int affinity;
         public int totalConversations;
@@ -42,6 +25,13 @@ public class RelationshipSaveManager : MonoBehaviour
         public int consecutiveDays;
         public string activeQuestId = "";
         public int questProgress;
+        public string memorySummary = "";
+    }
+
+    [System.Serializable]
+    private class SaveFile
+    {
+        public List<NPCSaveData> entries = new();
     }
 
     private void Awake()
@@ -58,14 +48,6 @@ public class RelationshipSaveManager : MonoBehaviour
         EnsureEntry(npcId);
         saveData[npcId].affinity = affinity;
         WriteToDisk();
-    }
-
-    public int Load(string npcId)
-    {
-        if (!string.IsNullOrEmpty(npcId) && saveData.TryGetValue(npcId, out var data))
-            return data.affinity;
-
-        return DefaultAffinity;
     }
 
     public bool TryLoad(string npcId, out int affinity)
@@ -139,19 +121,16 @@ public class RelationshipSaveManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 퀘스트 데이터를 반환합니다. 활성 퀘스트가 없으면 null을 반환합니다.
+    /// 퀘스트 데이터를 반환합니다. 해당 NPC의 저장 데이터가 없으면 null을 반환합니다.
     /// </summary>
     public QuestLoadResult LoadQuest(string npcId)
     {
         if (string.IsNullOrEmpty(npcId) || !saveData.TryGetValue(npcId, out var data))
             return null;
 
-        if (string.IsNullOrEmpty(data.activeQuestId))
-            return null;
-
         return new QuestLoadResult
         {
-            activeQuestId = data.activeQuestId,
+            activeQuestId = data.activeQuestId ?? "",
             questProgress = data.questProgress
         };
     }
@@ -164,12 +143,30 @@ public class RelationshipSaveManager : MonoBehaviour
 
     #endregion
 
+    #region Memory
+
+    public void SaveMemory(string npcId, string memorySummary)
+    {
+        if (string.IsNullOrEmpty(npcId)) return;
+        EnsureEntry(npcId);
+        saveData[npcId].memorySummary = memorySummary ?? "";
+        WriteToDisk();
+    }
+
+    public string LoadMemory(string npcId)
+    {
+        if (string.IsNullOrEmpty(npcId) || !saveData.TryGetValue(npcId, out var data))
+            return "";
+        return data.memorySummary ?? "";
+    }
+
+    #endregion
+
     #region Core IO
 
     private void EnsureEntry(string npcId)
     {
-        if (!saveData.ContainsKey(npcId))
-            saveData[npcId] = new NPCSaveData();
+        saveData.TryAdd(npcId, new NPCSaveData());
     }
 
     public void LoadAll()
@@ -187,15 +184,10 @@ public class RelationshipSaveManager : MonoBehaviour
 
             foreach (var entry in file.entries)
             {
-                saveData[entry.npcId] = new NPCSaveData
-                {
-                    affinity = entry.affinity,
-                    totalConversations = entry.totalConversations,
-                    lastConversationDate = entry.lastConversationDate ?? "",
-                    consecutiveDays = entry.consecutiveDays,
-                    activeQuestId = entry.activeQuestId ?? "",
-                    questProgress = entry.questProgress
-                };
+                entry.lastConversationDate ??= "";
+                entry.activeQuestId ??= "";
+                entry.memorySummary ??= "";
+                saveData[entry.npcId] = entry;
             }
         }
         catch (System.Exception e)
@@ -209,20 +201,11 @@ public class RelationshipSaveManager : MonoBehaviour
         var file = new SaveFile();
         foreach (var kvp in saveData)
         {
-            file.entries.Add(new SaveEntry
-            {
-                npcId = kvp.Key,
-                affinity = kvp.Value.affinity,
-                totalConversations = kvp.Value.totalConversations,
-                lastConversationDate = kvp.Value.lastConversationDate,
-                consecutiveDays = kvp.Value.consecutiveDays,
-                activeQuestId = kvp.Value.activeQuestId,
-                questProgress = kvp.Value.questProgress
-            });
+            kvp.Value.npcId = kvp.Key;
+            file.entries.Add(kvp.Value);
         }
 
-        string json = JsonUtility.ToJson(file, true);
-        File.WriteAllText(SavePath, json);
+        File.WriteAllText(SavePath, JsonUtility.ToJson(file, true));
     }
 
     public void DeleteSave()

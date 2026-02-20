@@ -15,6 +15,8 @@ public class NPCBrain : MonoBehaviour
         if (RelationshipSaveManager.Instance.TryLoad(profile.npcId, out int saved))
             relationship.affinity = saved;
 
+        memory.summarizedMemory = RelationshipSaveManager.Instance.LoadMemory(profile.npcId);
+
         interactionTracker = new NPCInteractionTracker(profile.npcId);
         questHandler = GetComponent<NPCQuestHandler>();
     }
@@ -28,7 +30,7 @@ public class NPCBrain : MonoBehaviour
     }
 
     /// <summary>
-    /// 대화 세션 종료 시 호출. 친밀도 소량 증가 + 대화 기록 갱신 + 퀘스트 진행.
+    /// 대화 세션 종료 시 호출. 친밀도 소량 증가 + 대화 기록 갱신 + 메모리 요약 저장.
     /// </summary>
     public void OnConversationEnd()
     {
@@ -37,24 +39,24 @@ public class NPCBrain : MonoBehaviour
         ModifyAffinity(gain);
         interactionTracker.RecordConversation();
 
-        if (questHandler != null)
-            questHandler.OnConversationRecorded();
-    }
-
-    /// <summary>
-    /// 대화 시작 시 호출. 퀘스트 제안/완료 여부에 따라 추가 프롬프트 컨텍스트를 반환합니다.
-    /// </summary>
-    public string GetQuestContext()
-    {
-        if (questHandler == null) return "";
-        return questHandler.GetPromptContext(interactionTracker);
+        memory.SummarizeCurrentSession();
+        RelationshipSaveManager.Instance.SaveMemory(profile.npcId, memory.summarizedMemory);
+        memory.ClearRecentDialogues();
     }
 
     public void HandlePlayerInteraction(string playerInput)
     {
         memory.AddDialogue("Player: " + playerInput);
 
-        string questContext = GetQuestContext();
+        if (ShouldUseLocalResponse())
+        {
+            string local = relationship.GetLocalResponse();
+            Debug.Log($"[NPC:{profile.npcName}] 로컬 응답 사용 (예산/쿨다운)");
+            ProcessResponse(local);
+            return;
+        }
+
+        string questContext = questHandler != null ? questHandler.GetPromptContext() : "";
 
         AIManager.Instance.RequestResponse(
             profile,
@@ -63,8 +65,19 @@ public class NPCBrain : MonoBehaviour
             playerInput,
             currentLanguage,
             ProcessResponse,
-            questContext
+            questContext,
+            interactionTracker.TotalConversations,
+            interactionTracker.GetDaysSinceLastConversation(),
+            interactionTracker.ConsecutiveDays
         );
+    }
+
+    /// <summary>
+    /// 일일 토큰 예산 초과 시 로컬 응답으로 대체합니다.
+    /// </summary>
+    private bool ShouldUseLocalResponse()
+    {
+        return !TokenTracker.Instance.HasBudget();
     }
 
     private void ProcessResponse(string response)

@@ -14,11 +14,20 @@ public class ChatUI : MonoBehaviour
     [SerializeField] private Button sendButton;
     [SerializeField] private Button closeButton;
 
+    [Header("Quest UI")]
+    [SerializeField] private GameObject questButtonGroup;
+    [SerializeField] private Button acceptButton;
+    [SerializeField] private Button rejectButton;
+
+    [Header("Farewell")]
+    [SerializeField] private float farewellDelay = 1.5f;
+
     private RectTransform contentRect;
     private NPCCharacter currentNPC;
     private bool waitingForResponse;
     private int currentTurn;
     private int maxTurns;
+    private bool isQuestProposalMode;
 
     private void Awake()
     {
@@ -31,12 +40,22 @@ public class ChatUI : MonoBehaviour
     {
         sendButton.onClick.AddListener(OnSendClicked);
         closeButton.onClick.AddListener(Close);
+
+        if (acceptButton != null)
+            acceptButton.onClick.AddListener(OnAcceptQuest);
+        if (rejectButton != null)
+            rejectButton.onClick.AddListener(OnRejectQuest);
     }
 
     private void OnDisable()
     {
         sendButton.onClick.RemoveListener(OnSendClicked);
         closeButton.onClick.RemoveListener(Close);
+
+        if (acceptButton != null)
+            acceptButton.onClick.RemoveListener(OnAcceptQuest);
+        if (rejectButton != null)
+            rejectButton.onClick.RemoveListener(OnRejectQuest);
     }
 
     public void Open(NPCCharacter npc, string npcName)
@@ -45,23 +64,61 @@ public class ChatUI : MonoBehaviour
         currentTurn = 0;
         maxTurns = npc.brain.relationship.GetMaxTurns();
         waitingForResponse = true;
+        isQuestProposalMode = false;
 
         chatPanel.SetActive(true);
         dialogueText.text = $"<b>{npcName}</b>: ...";
 
-        inputField.interactable = false;
-        sendButton.interactable = false;
+        SetChatInputVisible(false);
+        SetQuestButtonsVisible(false);
         ScrollToBottom();
     }
 
+    /// <summary>
+    /// 일반 인사 표시.
+    /// </summary>
     public void UpdateGreeting(string npcName, string greeting)
     {
         dialogueText.text = $"<b>{npcName}</b>: {greeting}";
         waitingForResponse = false;
 
-        inputField.interactable = true;
-        sendButton.interactable = true;
-        inputField.ActivateInputField();
+        SetChatInputVisible(true);
+        ScrollToBottom();
+    }
+
+    /// <summary>
+    /// 인사 대신 퀘스트 제안 메시지를 표시하고 수락/거절 버튼을 보여줍니다.
+    /// </summary>
+    public void OpenQuestProposal(string npcName, string proposalMessage)
+    {
+        isQuestProposalMode = true;
+        dialogueText.text = $"<b>{npcName}</b>: {proposalMessage}";
+        waitingForResponse = false;
+
+        SetChatInputVisible(false);
+        SetQuestButtonsVisible(true);
+        ScrollToBottom();
+    }
+
+    /// <summary>
+    /// 프롬프트 UI에서 "전달하기" 버튼을 눌렀을 때 호출.
+    /// 퀘스트 완료 메시지 + 보상 정보를 표시하고, 입력창을 열어 일반 대화로 전환할 수 있게 합니다.
+    /// </summary>
+    public void OpenDeliveryResult(NPCCharacter npc, string npcName, QuestCompletionResult result)
+    {
+        currentNPC = npc;
+        currentTurn = 0;
+        maxTurns = npc.brain.relationship.GetMaxTurns();
+        waitingForResponse = false;
+        isQuestProposalMode = false;
+
+        chatPanel.SetActive(true);
+
+        string rewardLine = $"\n\n<color=#FFD700>★ 퀘스트 완료! 친밀도 +{result.affinityReward}</color>";
+        dialogueText.text = $"<b>{npcName}</b>: {result.completionMessage}{rewardLine}";
+
+        SetChatInputVisible(true);
+        SetQuestButtonsVisible(false);
         ScrollToBottom();
     }
 
@@ -69,6 +126,8 @@ public class ChatUI : MonoBehaviour
     {
         chatPanel.SetActive(false);
         inputField.text = "";
+
+        SetQuestButtonsVisible(false);
 
         if (currentNPC != null)
         {
@@ -80,6 +139,7 @@ public class ChatUI : MonoBehaviour
         }
 
         waitingForResponse = false;
+        isQuestProposalMode = false;
 
         CameraManager.Instance.EndInteraction();
         PlayerCharacter.Instance.IsInputLocked = false;
@@ -113,10 +173,8 @@ public class ChatUI : MonoBehaviour
 
         if (currentTurn >= maxTurns)
         {
-            string farewell = currentNPC.brain.relationship.GetFarewell();
-            dialogueText.text += $"\n<b>{npcName}</b>: {farewell}";
-            inputField.interactable = false;
-            sendButton.interactable = false;
+            SetChatInputVisible(false);
+            StartCoroutine(ShowFarewellAfterDelay(npcName));
         }
         else
         {
@@ -126,6 +184,70 @@ public class ChatUI : MonoBehaviour
 
         ScrollToBottom();
     }
+
+    private IEnumerator ShowFarewellAfterDelay(string npcName)
+    {
+        yield return new WaitForSeconds(farewellDelay);
+
+        if (currentNPC != null)
+        {
+            string farewell = currentNPC.brain.relationship.GetFarewell();
+            dialogueText.text += $"\n<b>{npcName}</b>: {farewell}";
+            ScrollToBottom();
+        }
+    }
+
+    #region Quest Buttons
+
+    private void OnAcceptQuest()
+    {
+        if (currentNPC == null) return;
+
+        var handler = currentNPC.brain.questHandler;
+        if (handler != null)
+            handler.ActivateQuest();
+
+        Close();
+    }
+
+    private void OnRejectQuest()
+    {
+        if (currentNPC == null) return;
+
+        isQuestProposalMode = false;
+        SetQuestButtonsVisible(false);
+
+        string npcName = currentNPC.brain.profile.npcName;
+        string greeting = currentNPC.GetTimeAwareGreeting();
+
+        UpdateGreeting(npcName, greeting);
+    }
+
+    #endregion
+
+    #region UI Helpers
+
+    private void SetChatInputVisible(bool visible)
+    {
+        inputField.gameObject.SetActive(visible);
+        sendButton.gameObject.SetActive(visible);
+
+        if (visible)
+        {
+            inputField.interactable = true;
+            sendButton.interactable = true;
+            inputField.ActivateInputField();
+        }
+    }
+
+    private void SetQuestButtonsVisible(bool visible)
+    {
+        if (questButtonGroup != null)
+            questButtonGroup.SetActive(visible);
+    }
+
+
+    #endregion
 
     private void ScrollToBottom()
     {
@@ -149,6 +271,7 @@ public class ChatUI : MonoBehaviour
     private void Update()
     {
         if (!chatPanel.activeSelf) return;
+        if (isQuestProposalMode) return;
 
         if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
         {

@@ -43,6 +43,29 @@ public class NPCInteractionTracker
         SaveToStore();
     }
 
+    /// <summary>
+    /// 마지막 대화 이후 경과 일수를 반환합니다. 대화 기록이 없으면 -1을 반환합니다.
+    /// 같은 날이면 0, 어제면 1 등.
+    /// </summary>
+    public int GetDaysSinceLastConversation()
+    {
+        if (string.IsNullOrEmpty(LastConversationDate))
+            return -1;
+
+        if (DateTime.TryParse(LastConversationDate, out DateTime lastDate))
+            return (DateTime.Now.Date - lastDate.Date).Days;
+
+        return -1;
+    }
+
+    /// <summary>
+    /// 오늘 이미 대화한 적 있는지 확인합니다.
+    /// </summary>
+    public bool HasTalkedToday()
+    {
+        return LastConversationDate == DateTime.Now.ToString("yyyy-MM-dd");
+    }
+
     private bool IsYesterday(string dateStr)
     {
         if (string.IsNullOrEmpty(dateStr)) return false;

@@ -2,9 +2,7 @@ using UnityEngine;
 
 public enum QuestType
 {
-    VisitAgain,
-    TalkMultiple,
-    ConsecutiveVisit
+    FetchItem
 }
 
 /// <summary>
@@ -15,21 +13,29 @@ public class QuestData : ScriptableObject
 {
     public string questId;
     public QuestType type;
-
-    [Tooltip("완료에 필요한 횟수 (방문 횟수, 대화 횟수, 연속 일수 등)")]
-    public int requiredCount = 1;
-
-    [Tooltip("완료 시 친밀도 보상")]
     public int affinityReward = 10;
 
-    [Tooltip("이 퀘스트가 트리거되기 위한 최소 누적 대화 횟수")]
-    public int conversationThreshold = 3;
+    [Header("Trigger Conditions")]
+    [Tooltip("퀘스트가 제안되기 위한 최소 친밀도")]
+    public int requiredAffinity;
+
+    [Tooltip("퀘스트가 제안되기 위한 최소 누적 대화 횟수")]
+    public int requiredConversations;
+
+    [Header("FetchItem")]
+    public ItemData requiredItem;
+    public int requiredAmount = 1;
+
+    [Header("Dialogue")]
+    [TextArea(2, 4)]
+    [Tooltip("퀘스트 제안 시 NPC가 하는 말 (인사 대신 표시)")]
+    public string proposalMessage;
 
     [TextArea(2, 4)]
-    [Tooltip("퀘스트 제안 시 AI 프롬프트에 추가되는 지시문")]
-    public string questDialogue;
+    [Tooltip("아이템 전달 시 NPC 반응")]
+    public string completionMessage;
 
     [TextArea(2, 4)]
-    [Tooltip("퀘스트 완료 시 AI 프롬프트에 추가되는 지시문")]
-    public string completionDialogue;
+    [Tooltip("퀘스트 진행 중 AI 프롬프트에 추가되는 컨텍스트")]
+    public string reminderMessage;
 }

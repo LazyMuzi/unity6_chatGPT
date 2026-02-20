@@ -19,7 +19,10 @@ public class AIManager : MonoBehaviour
         string userInput,
         GameLanguage language,
         Action<string> callback,
-        string questContext = "")
+        string questContext = "",
+        int totalConversations = 0,
+        int daysSinceLastConversation = -1,
+        int consecutiveDays = 0)
     {
         string systemPrompt =
             PromptBuilder.BuildSystemPrompt(
@@ -27,9 +30,12 @@ public class AIManager : MonoBehaviour
                 relationship,
                 memory,
                 language,
-                questContext
+                questContext,
+                totalConversations,
+                daysSinceLastConversation,
+                consecutiveDays
             );
 
-        chatHelper.GetChatResponse(systemPrompt, userInput, callback);
+        chatHelper.GetChatResponse(systemPrompt, userInput, callback, profile.npcId);
     }
 }
