@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -13,19 +14,21 @@ public struct QuestCompletionResult
 }
 
 /// <summary>
-/// NPC별 퀘스트 트리거, 제안, 전달, 완료를 관리합니다.
-/// NPCBrain과 같은 GameObject에 부착합니다.
+/// NPC별 퀘스트 제안, 활성화, 전달, 완료를 관리합니다.
+/// QuestPool을 참조하고 QuestGenerator로 조건 기반 퀘스트를 선택합니다.
 /// </summary>
 public class NPCQuestHandler : MonoBehaviour
 {
-    [SerializeField] private QuestData[] availableQuests;
+    [SerializeField] private QuestPool questPool;
 
     private NPCBrain brain;
     private string npcId;
 
-    private int currentQuestIndex = -1;
-    private QuestData activeQuest;
-    private int completedQuestCount;
+    private readonly QuestGenerator generator = new();
+    private ActiveQuest activeQuest;
+    private Dictionary<string, float> lastQuestTimes = new();
+
+    private QuestData pendingProposal;
 
     private void Awake()
     {
@@ -40,17 +43,16 @@ public class NPCQuestHandler : MonoBehaviour
 
     /// <summary>
     /// 대화 시작 시점에 호출. 제안할 퀘스트가 있는지 확인합니다.
-    /// 활성 퀘스트 없음 + 조건(친밀도/대화횟수) 충족 시 true 반환.
+    /// 활성 퀘스트 없음 + 친밀도 범위 + 쿨다운 충족 시 true 반환.
     /// </summary>
     public bool HasPendingProposal()
     {
         if (activeQuest != null) return false;
 
-        var next = GetNextAvailableQuest();
-        if (next == null) return false;
+        int affinity = brain.relationship.affinity;
+        pendingProposal = generator.GetAvailableQuest(questPool, affinity, lastQuestTimes);
 
-        return brain.relationship.affinity >= next.requiredAffinity
-            && brain.interactionTracker.TotalConversations >= next.requiredConversations;
+        return pendingProposal != null;
     }
 
     /// <summary>
@@ -58,8 +60,7 @@ public class NPCQuestHandler : MonoBehaviour
     /// </summary>
     public string GetProposalMessage()
     {
-        var next = GetNextAvailableQuest();
-        return next != null ? next.proposalMessage : "";
+        return pendingProposal != null ? pendingProposal.proposalMessage : "";
     }
 
     /// <summary>
@@ -67,13 +68,15 @@ public class NPCQuestHandler : MonoBehaviour
     /// </summary>
     public void ActivateQuest()
     {
-        var next = GetNextAvailableQuest();
-        if (next == null) return;
+        if (pendingProposal == null) return;
 
-        activeQuest = next;
-        currentQuestIndex = System.Array.IndexOf(availableQuests, next);
+        activeQuest = new ActiveQuest(pendingProposal);
 
-        Debug.Log($"[Quest:{npcId}] ★ 퀘스트 활성화: '{next.questId}' (아이템: {next.requiredItem?.itemName} x{next.requiredAmount}, 보상: +{next.affinityReward})");
+        Debug.Log($"[Quest:{npcId}] Quest activated: '{pendingProposal.questId}' " +
+                  $"(item: {pendingProposal.requiredItem?.itemName} x{pendingProposal.requiredAmount}, " +
+                  $"reward: +{pendingProposal.rewardAffinity})");
+
+        pendingProposal = null;
         SaveQuestState();
     }
 
@@ -83,41 +86,44 @@ public class NPCQuestHandler : MonoBehaviour
     public bool CanDeliverItem()
     {
         if (activeQuest == null) return false;
-        if (activeQuest.requiredItem == null) return false;
+
+        var data = activeQuest.data;
+        if (data.requiredItem == null) return false;
 
         return PlayerInventory.Instance.HasItem(
-            activeQuest.requiredItem.itemId,
-            activeQuest.requiredAmount);
+            data.requiredItem.itemId,
+            data.requiredAmount);
     }
 
     /// <summary>
-    /// 아이템을 전달하고 퀘스트를 완료합니다. 완료 결과(메시지, 보상 등)를 반환합니다.
+    /// 아이템을 전달하고 퀘스트를 완료합니다. 완료 결과를 반환합니다.
     /// </summary>
     public QuestCompletionResult CompleteQuest()
     {
         if (activeQuest == null)
             return new QuestCompletionResult { success = false };
 
+        var data = activeQuest.data;
+
         var result = new QuestCompletionResult
         {
             success = true,
-            completionMessage = activeQuest.completionMessage,
-            affinityReward = activeQuest.affinityReward,
-            itemName = activeQuest.requiredItem != null ? activeQuest.requiredItem.itemName : "",
-            itemAmount = activeQuest.requiredAmount,
+            completionMessage = data.completionMessage,
+            affinityReward = data.rewardAffinity,
+            itemName = data.requiredItem != null ? data.requiredItem.itemName : "",
+            itemAmount = data.requiredAmount,
         };
 
         PlayerInventory.Instance.RemoveItem(
-            activeQuest.requiredItem.itemId,
-            activeQuest.requiredAmount);
+            data.requiredItem.itemId,
+            data.requiredAmount);
 
-        Debug.Log($"[Quest:{npcId}] ★★ 퀘스트 완료! '{activeQuest.questId}' → 친밀도 +{result.affinityReward}");
+        Debug.Log($"[Quest:{npcId}] Quest completed: '{data.questId}' -> affinity +{result.affinityReward}");
         brain.ModifyAffinity(result.affinityReward);
 
-        completedQuestCount++;
+        lastQuestTimes[data.questId] = Time.time;
         activeQuest = null;
 
-        Debug.Log($"[Quest:{npcId}] 총 완료 퀘스트: {completedQuestCount}개");
         SaveQuestState();
 
         return result;
@@ -128,25 +134,12 @@ public class NPCQuestHandler : MonoBehaviour
     /// </summary>
     public string GetPromptContext()
     {
-        if (activeQuest == null) return "";
-        if (string.IsNullOrEmpty(activeQuest.reminderMessage)) return "";
-        return activeQuest.reminderMessage;
+        if (activeQuest == null || string.IsNullOrEmpty(activeQuest.data.reminderMessage))
+            return "";
+        return activeQuest.data.reminderMessage;
     }
 
     public bool HasActiveQuest => activeQuest != null;
-
-    private QuestData GetNextAvailableQuest()
-    {
-        if (availableQuests == null || availableQuests.Length == 0)
-            return null;
-
-        int nextIndex = currentQuestIndex + 1;
-
-        if (nextIndex >= availableQuests.Length)
-            return null;
-
-        return availableQuests[nextIndex];
-    }
 
     #region Save/Load
 
@@ -155,27 +148,27 @@ public class NPCQuestHandler : MonoBehaviour
         var result = RelationshipSaveManager.Instance.LoadQuest(npcId);
         if (result == null) return;
 
-        currentQuestIndex = result.questProgress;
+        lastQuestTimes = result.lastQuestTimes ?? new Dictionary<string, float>();
 
         if (!string.IsNullOrEmpty(result.activeQuestId))
         {
-            activeQuest = FindQuestById(result.activeQuestId);
-            if (activeQuest != null)
-                currentQuestIndex = System.Array.IndexOf(availableQuests, activeQuest);
+            var questData = FindQuestById(result.activeQuestId);
+            if (questData != null)
+                activeQuest = new ActiveQuest(questData);
         }
     }
 
     private void SaveQuestState()
     {
-        string questId = activeQuest != null ? activeQuest.questId : "";
-        RelationshipSaveManager.Instance.SaveQuest(npcId, questId, currentQuestIndex);
+        string questId = activeQuest != null ? activeQuest.data.questId : "";
+        RelationshipSaveManager.Instance.SaveQuest(npcId, questId, lastQuestTimes);
     }
 
     private QuestData FindQuestById(string questId)
     {
-        if (availableQuests == null) return null;
+        if (questPool == null || questPool.quests == null) return null;
 
-        foreach (var quest in availableQuests)
+        foreach (var quest in questPool.quests)
         {
             if (quest != null && quest.questId == questId)
                 return quest;

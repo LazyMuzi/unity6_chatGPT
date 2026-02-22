@@ -19,7 +19,7 @@ public class NPCCharacter : CharacterBase, IInteractable
 
     [Header("Approach Behavior")]
     [SerializeField] private float stoppingDistance = 3f;
-    [SerializeField] private int approachAffinityThreshold = 50;
+    [SerializeField] private int approachAffinityThreshold = 80;
 
     private NavMeshAgent agent;
     private NPCState currentState = NPCState.Idle;
@@ -151,8 +151,8 @@ public class NPCCharacter : CharacterBase, IInteractable
 
     private float GetDetectionRange()
     {
-        if (brain.relationship.affinity >= 80) return 15f;
-        return 10f;
+        if (brain.relationship.affinity >= 80) return 10f;
+        return 5f;
     }
 
     private Transform GetPlayerTransform()

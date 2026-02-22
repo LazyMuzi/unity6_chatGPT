@@ -9,9 +9,13 @@ public class NPCInteractionTracker
 {
     private string npcId;
 
+    private const int MaxDailyConversationAffinity = 3;
+
     public int TotalConversations { get; private set; }
     public string LastConversationDate { get; private set; } = "";
     public int ConsecutiveDays { get; private set; }
+    public int DailyAffinityGained { get; private set; }
+    public string DailyAffinityDate { get; private set; } = "";
 
     public NPCInteractionTracker(string npcId)
     {
@@ -66,6 +70,37 @@ public class NPCInteractionTracker
         return LastConversationDate == DateTime.Now.ToString("yyyy-MM-dd");
     }
 
+    /// <summary>
+    /// 오늘 대화로 추가 획득 가능한 친밀도를 반환합니다.
+    /// 날짜가 바뀌었으면 카운터를 리셋합니다.
+    /// </summary>
+    public int GetRemainingDailyAffinityGain()
+    {
+        ResetIfNewDay();
+        return Mathf.Max(0, MaxDailyConversationAffinity - DailyAffinityGained);
+    }
+
+    /// <summary>
+    /// 대화로 획득한 친밀도를 기록합니다.
+    /// </summary>
+    public void RecordAffinityGain(int amount)
+    {
+        ResetIfNewDay();
+        DailyAffinityGained += amount;
+        DailyAffinityDate = DateTime.Now.ToString("yyyy-MM-dd");
+        SaveToStore();
+    }
+
+    private void ResetIfNewDay()
+    {
+        string today = DateTime.Now.ToString("yyyy-MM-dd");
+        if (DailyAffinityDate != today)
+        {
+            DailyAffinityGained = 0;
+            DailyAffinityDate = today;
+        }
+    }
+
     private bool IsYesterday(string dateStr)
     {
         if (string.IsNullOrEmpty(dateStr)) return false;
@@ -86,11 +121,14 @@ public class NPCInteractionTracker
         TotalConversations = data.totalConversations;
         LastConversationDate = data.lastConversationDate ?? "";
         ConsecutiveDays = data.consecutiveDays;
+        DailyAffinityGained = data.dailyAffinityGained;
+        DailyAffinityDate = data.dailyAffinityDate ?? "";
     }
 
     private void SaveToStore()
     {
         RelationshipSaveManager.Instance.SaveInteraction(npcId,
-            TotalConversations, LastConversationDate, ConsecutiveDays);
+            TotalConversations, LastConversationDate, ConsecutiveDays,
+            DailyAffinityGained, DailyAffinityDate);
     }
 }

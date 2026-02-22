@@ -34,9 +34,20 @@ public class NPCBrain : MonoBehaviour
     /// </summary>
     public void OnConversationEnd()
     {
-        int gain = Random.Range(1, 3);
-        Debug.Log($"[NPC:{profile.npcName}] ── 대화 종료 ── 친밀도 +{gain} 적용");
-        ModifyAffinity(gain);
+        int remaining = interactionTracker.GetRemainingDailyAffinityGain();
+        int gain = Mathf.Min(Random.Range(1, 3), remaining);
+
+        if (gain > 0)
+        {
+            Debug.Log($"[NPC:{profile.npcName}] ── 대화 종료 ── 친밀도 +{gain} 적용 (일일 잔여: {remaining - gain})");
+            ModifyAffinity(gain);
+            interactionTracker.RecordAffinityGain(gain);
+        }
+        else
+        {
+            Debug.Log($"[NPC:{profile.npcName}] ── 대화 종료 ── 일일 대화 친밀도 상한 도달");
+        }
+
         interactionTracker.RecordConversation();
 
         memory.SummarizeCurrentSession();

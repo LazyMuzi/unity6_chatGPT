@@ -24,8 +24,17 @@ public class RelationshipSaveManager : MonoBehaviour
         public string lastConversationDate = "";
         public int consecutiveDays;
         public string activeQuestId = "";
-        public int questProgress;
+        public List<QuestTimeEntry> lastQuestTimes = new();
         public string memorySummary = "";
+        public int dailyAffinityGained;
+        public string dailyAffinityDate = "";
+    }
+
+    [System.Serializable]
+    private class QuestTimeEntry
+    {
+        public string questId;
+        public float time;
     }
 
     [System.Serializable]
@@ -70,7 +79,8 @@ public class RelationshipSaveManager : MonoBehaviour
 
     #region Interaction Tracking
 
-    public void SaveInteraction(string npcId, int totalConversations, string lastDate, int consecutiveDays)
+    public void SaveInteraction(string npcId, int totalConversations, string lastDate,
+        int consecutiveDays, int dailyAffinityGained = -1, string dailyAffinityDate = null)
     {
         if (string.IsNullOrEmpty(npcId)) return;
         EnsureEntry(npcId);
@@ -79,6 +89,12 @@ public class RelationshipSaveManager : MonoBehaviour
         entry.totalConversations = totalConversations;
         entry.lastConversationDate = lastDate;
         entry.consecutiveDays = consecutiveDays;
+
+        if (dailyAffinityGained >= 0)
+            entry.dailyAffinityGained = dailyAffinityGained;
+        if (dailyAffinityDate != null)
+            entry.dailyAffinityDate = dailyAffinityDate;
+
         WriteToDisk();
     }
 
@@ -94,7 +110,9 @@ public class RelationshipSaveManager : MonoBehaviour
         {
             totalConversations = data.totalConversations,
             lastConversationDate = data.lastConversationDate,
-            consecutiveDays = data.consecutiveDays
+            consecutiveDays = data.consecutiveDays,
+            dailyAffinityGained = data.dailyAffinityGained,
+            dailyAffinityDate = data.dailyAffinityDate ?? ""
         };
     }
 
@@ -103,20 +121,29 @@ public class RelationshipSaveManager : MonoBehaviour
         public int totalConversations;
         public string lastConversationDate;
         public int consecutiveDays;
+        public int dailyAffinityGained;
+        public string dailyAffinityDate;
     }
 
     #endregion
 
     #region Quest
 
-    public void SaveQuest(string npcId, string questId, int progress)
+    public void SaveQuest(string npcId, string questId, Dictionary<string, float> lastQuestTimes)
     {
         if (string.IsNullOrEmpty(npcId)) return;
         EnsureEntry(npcId);
 
         var entry = saveData[npcId];
         entry.activeQuestId = questId ?? "";
-        entry.questProgress = progress;
+
+        entry.lastQuestTimes.Clear();
+        if (lastQuestTimes != null)
+        {
+            foreach (var kvp in lastQuestTimes)
+                entry.lastQuestTimes.Add(new QuestTimeEntry { questId = kvp.Key, time = kvp.Value });
+        }
+
         WriteToDisk();
     }
 
@@ -128,17 +155,24 @@ public class RelationshipSaveManager : MonoBehaviour
         if (string.IsNullOrEmpty(npcId) || !saveData.TryGetValue(npcId, out var data))
             return null;
 
+        var times = new Dictionary<string, float>();
+        if (data.lastQuestTimes != null)
+        {
+            foreach (var e in data.lastQuestTimes)
+                times[e.questId] = e.time;
+        }
+
         return new QuestLoadResult
         {
             activeQuestId = data.activeQuestId ?? "",
-            questProgress = data.questProgress
+            lastQuestTimes = times
         };
     }
 
     public class QuestLoadResult
     {
         public string activeQuestId;
-        public int questProgress;
+        public Dictionary<string, float> lastQuestTimes;
     }
 
     #endregion
@@ -186,7 +220,9 @@ public class RelationshipSaveManager : MonoBehaviour
             {
                 entry.lastConversationDate ??= "";
                 entry.activeQuestId ??= "";
+                entry.lastQuestTimes ??= new List<QuestTimeEntry>();
                 entry.memorySummary ??= "";
+                entry.dailyAffinityDate ??= "";
                 saveData[entry.npcId] = entry;
             }
         }

@@ -14,9 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::QuestData
   questId: fetch_apple_01
   type: 0
-  affinityReward: 10
-  requiredAffinity: 0
-  requiredConversations: 1
+  description: 
+  rewardAffinity: 10
+  minAffinity: 30
+  maxAffinity: 60
+  cooldown: 60
   requiredItem: {fileID: 11400000, guid: aa11bb22cc33dd44ee55ff6677889900, type: 2}
   requiredAmount: 1
   proposalMessage: "\uC800\uAE30... \uD639\uC2DC \uBD80\uD0C1 \uD558\uB098 \uD574\uB3C4
@@ -24,5 +26,5 @@ MonoBehaviour:
     \uC788\uC5B4?"
   completionMessage: "\uC640, \uC815\uB9D0 \uAD6C\uD574\uC654\uAD6C\uB098! \uACE0\uB9C8\uC6CC,
     \uC815\uB9D0 \uACE0\uB9C8\uC6CC!"
-  reminderMessage: "[Quest active: You asked the player to bring you an apple. You
-    are waiting for them to find one. If they mention the apple, respond with anticipation.]"
+  reminderMessage: '[Quest active: You asked the player to bring you an apple. You
+    are waiting for them to find one. If they mention the apple, respond with anticipation.]'

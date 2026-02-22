@@ -2,40 +2,44 @@ using UnityEngine;
 
 public enum QuestType
 {
-    FetchItem
+    Fetch,
+    Assist,
+    Dialogue,
+    Event
 }
 
 /// <summary>
-/// NPC가 플레이어에게 제안하는 퀘스트 데이터입니다.
+/// 퀘스트 템플릿 데이터. 런타임 상태는 ActiveQuest에서 관리합니다.
 /// </summary>
-[CreateAssetMenu(menuName = "Quest/QuestData")]
+[CreateAssetMenu(fileName = "QuestData", menuName = "Game/Quest")]
 public class QuestData : ScriptableObject
 {
     public string questId;
     public QuestType type;
-    public int affinityReward = 10;
 
-    [Header("Trigger Conditions")]
-    [Tooltip("퀘스트가 제안되기 위한 최소 친밀도")]
-    public int requiredAffinity;
+    [TextArea]
+    public string description;
 
-    [Tooltip("퀘스트가 제안되기 위한 최소 누적 대화 횟수")]
-    public int requiredConversations;
+    public int rewardAffinity;
 
-    [Header("FetchItem")]
+    [Header("Availability")]
+    public int minAffinity;
+    public int maxAffinity;
+
+    [Tooltip("완료 후 다시 제안되기까지 걸리는 시간(초)")]
+    public float cooldown;
+
+    [Header("Fetch")]
     public ItemData requiredItem;
     public int requiredAmount = 1;
 
     [Header("Dialogue")]
     [TextArea(2, 4)]
-    [Tooltip("퀘스트 제안 시 NPC가 하는 말 (인사 대신 표시)")]
     public string proposalMessage;
 
     [TextArea(2, 4)]
-    [Tooltip("아이템 전달 시 NPC 반응")]
     public string completionMessage;
 
     [TextArea(2, 4)]
-    [Tooltip("퀘스트 진행 중 AI 프롬프트에 추가되는 컨텍스트")]
     public string reminderMessage;
 }
