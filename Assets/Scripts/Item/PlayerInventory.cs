@@ -59,6 +59,11 @@ public class PlayerInventory : MonoBehaviour
         return items.TryGetValue(itemId, out int count) ? count : 0;
     }
 
+    public IReadOnlyDictionary<string, int> GetSnapshot()
+    {
+        return new Dictionary<string, int>(items);
+    }
+
     #region Persistence
 
     [Serializable]

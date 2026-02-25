@@ -1,10 +1,16 @@
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections;
+using System;
 
+/// <summary>
+/// NPC와의 대화 UI를 관리하며 열림/닫힘 이벤트를 발행합니다.
+/// </summary>
 public class ChatUI : MonoBehaviour
 {
     public static ChatUI Instance;
+    public event Action Opened;
+    public event Action Closed;
 
     [Header("UI References")]
     [SerializeField] private GameObject chatPanel;
@@ -66,7 +72,7 @@ public class ChatUI : MonoBehaviour
         waitingForResponse = true;
         isQuestProposalMode = false;
 
-        chatPanel.SetActive(true);
+        SetChatPanelActive(true);
         dialogueText.text = $"<b>{npcName}</b>: ...";
 
         SetChatInputVisible(false);
@@ -112,7 +118,7 @@ public class ChatUI : MonoBehaviour
         waitingForResponse = false;
         isQuestProposalMode = false;
 
-        chatPanel.SetActive(true);
+        SetChatPanelActive(true);
 
         string rewardLine = $"\n\n<color=#FFD700>★ 퀘스트 완료! 친밀도 +{result.affinityReward}</color>";
         dialogueText.text = $"<b>{npcName}</b>: {result.completionMessage}{rewardLine}";
@@ -124,7 +130,7 @@ public class ChatUI : MonoBehaviour
 
     public void Close()
     {
-        chatPanel.SetActive(false);
+        SetChatPanelActive(false);
         inputField.text = "";
 
         SetQuestButtonsVisible(false);
@@ -244,6 +250,21 @@ public class ChatUI : MonoBehaviour
     {
         if (questButtonGroup != null)
             questButtonGroup.SetActive(visible);
+    }
+
+    private void SetChatPanelActive(bool active)
+    {
+        bool wasActive = chatPanel.activeSelf;
+        chatPanel.SetActive(active);
+
+        if (!wasActive && active)
+        {
+            Opened?.Invoke();
+        }
+        else if (wasActive && !active)
+        {
+            Closed?.Invoke();
+        }
     }
 
 

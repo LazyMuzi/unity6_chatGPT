@@ -1,79 +1,106 @@
 using UnityEngine;
 
-[RequireComponent(typeof(CharacterController))]
+/// <summary>
+/// 플레이어 캐릭터의 상위 오케스트레이션을 담당합니다.
+/// </summary>
+[RequireComponent(typeof(PlayerMovement))]
+[RequireComponent(typeof(PlayerInteractionScanner))]
+[RequireComponent(typeof(PlayerSound))]
+[RequireComponent(typeof(PlayerJump))]
+[RequireComponent(typeof(CharacterRunAnimation))]
 public class PlayerCharacter : CharacterBase
 {
     public static PlayerCharacter Instance { get; private set; }
 
-    [Header("Interaction")]
-    [SerializeField] private float interactionRange = 3f;
-
-    private CharacterController controller;
-    private IInteractable currentTarget;
+    [Header("Components")]
+    [SerializeField] private PlayerMovement movement;
+    [SerializeField] private PlayerInteractionScanner interactionScanner;
+    [SerializeField] private PlayerSound playerSound;
+    [SerializeField] private PlayerJump playerJump;
+    [SerializeField] private CharacterRunAnimation runAnimation;
 
     private void Awake()
     {
         Instance = this;
-        controller = GetComponent<CharacterController>();
-        moveSpeed = 5f;
+        ResolveDependencies();
     }
 
     private void Update()
     {
-        if (IsInputLocked)
+        bool movementLocked = IsInputLocked;
+
+        movement.Tick(movementLocked);
+        playerJump.Tick(IsInputLocked);
+
+        CollisionFlags collisionFlags = movement.ApplyMotion(playerJump.VerticalVelocity, Time.deltaTime);
+        bool groundedAfterMove = (collisionFlags & CollisionFlags.Below) != 0;
+        playerJump.SetGrounded(groundedAfterMove);
+
+        moveDirection = movement.MoveDirection;
+        moveSpeed = movement.MoveSpeed;
+
+        if (movementLocked)
         {
-            controller.SimpleMove(Vector3.zero);
-            return;
+            interactionScanner.ClearCurrentTarget();
+        }
+        else
+        {
+            interactionScanner.Tick();
         }
 
-        float h = Input.GetAxis("Horizontal");
-        float v = Input.GetAxis("Vertical");
-
-        Vector3 dir = new Vector3(h, 0, v);
-        moveDirection = dir;
-        controller.SimpleMove(moveDirection * moveSpeed);
-
-        DetectInteractable();
-    }
-
-    private void DetectInteractable()
-    {
-        Collider[] hits = Physics.OverlapSphere(transform.position, interactionRange);
-
-        IInteractable closest = null;
-        float closestDist = float.MaxValue;
-
-        foreach (var hit in hits)
-        {
-            var interactable = hit.GetComponent<IInteractable>();
-            if (interactable == null) continue;
-
-            float dist = Vector3.Distance(transform.position, hit.transform.position);
-            if (dist < closestDist)
-            {
-                closestDist = dist;
-                closest = interactable;
-            }
-        }
-
-        if (closest != currentTarget)
-        {
-            currentTarget?.HideInteractionPrompt();
-            currentTarget = closest;
-            currentTarget?.ShowInteractionPrompt();
-        }
+        bool footstepLocked = IsInputLocked || playerJump.IsAirborne;
+        playerSound.Tick(moveDirection, footstepLocked);
+        runAnimation.Tick(movement.IsMoving && !movementLocked && !playerJump.IsAirborne);
     }
 
     public override void OnCharacterTouched()
     {
         base.OnCharacterTouched();
+        playerSound.PlayTouchedSound();
+    }
+
+    public void RequestJump()
+    {
+        bool isChatOpen = ChatUI.Instance != null && ChatUI.Instance.IsOpen;
+        bool canJump = !IsInputLocked && !isChatOpen;
+        playerJump.TryJump(canJump);
     }
 
     private void OnDrawGizmosSelected()
     {
-        Gizmos.color = new Color(0f, 1f, 0.5f, 0.3f);
-        Gizmos.DrawSphere(transform.position, interactionRange);
-        Gizmos.color = Color.green;
-        Gizmos.DrawWireSphere(transform.position, interactionRange);
+        if (interactionScanner == null)
+        {
+            return;
+        }
+
+        interactionScanner.DrawGizmosSelected();
+    }
+
+    private void ResolveDependencies()
+    {
+        if (movement == null)
+        {
+            movement = GetComponent<PlayerMovement>();
+        }
+
+        if (interactionScanner == null)
+        {
+            interactionScanner = GetComponent<PlayerInteractionScanner>();
+        }
+
+        if (playerSound == null)
+        {
+            playerSound = GetComponent<PlayerSound>();
+        }
+
+        if (playerJump == null)
+        {
+            playerJump = GetComponent<PlayerJump>();
+        }
+
+        if (runAnimation == null)
+        {
+            runAnimation = GetComponent<CharacterRunAnimation>();
+        }
     }
 }

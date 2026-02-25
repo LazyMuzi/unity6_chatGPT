@@ -6,6 +6,7 @@ using System.Collections;
 /// NPC 캐릭터. 상태 머신으로 행동을 관리하며, 친밀도가 높으면 플레이어에게 접근합니다.
 /// </summary>
 [RequireComponent(typeof(NavMeshAgent))]
+[RequireComponent(typeof(CharacterRunAnimation))]
 public class NPCCharacter : CharacterBase, IInteractable
 {
     public NPCBrain brain;
@@ -20,6 +21,7 @@ public class NPCCharacter : CharacterBase, IInteractable
     [Header("Approach Behavior")]
     [SerializeField] private float stoppingDistance = 3f;
     [SerializeField] private int approachAffinityThreshold = 80;
+    [SerializeField] private CharacterRunAnimation runAnimation;
 
     private NavMeshAgent agent;
     private NPCState currentState = NPCState.Idle;
@@ -29,6 +31,11 @@ public class NPCCharacter : CharacterBase, IInteractable
     private void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
+        if (runAnimation == null)
+        {
+            runAnimation = GetComponent<CharacterRunAnimation>();
+        }
+
         agent.speed = 2f;
         agent.stoppingDistance = stoppingDistance;
         homePosition = transform.position;
@@ -47,6 +54,11 @@ public class NPCCharacter : CharacterBase, IInteractable
             case NPCState.WaitForChat:
                 UpdateWaitForChat();
                 break;
+        }
+
+        if (runAnimation != null)
+        {
+            runAnimation.Tick(IsAgentMoving());
         }
     }
 
@@ -159,6 +171,16 @@ public class NPCCharacter : CharacterBase, IInteractable
     {
         if (PlayerCharacter.Instance == null) return null;
         return PlayerCharacter.Instance.transform;
+    }
+
+    private bool IsAgentMoving()
+    {
+        if (agent == null || agent.isStopped)
+        {
+            return false;
+        }
+
+        return agent.velocity.sqrMagnitude > 0.01f;
     }
 
     #endregion
