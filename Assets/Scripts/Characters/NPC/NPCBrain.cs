@@ -2,10 +2,24 @@ using UnityEngine;
 
 public class NPCBrain : MonoBehaviour
 {
+    private static readonly string[] DefaultQuestRequestKeywords =
+    {
+        "퀘스트",
+        "의뢰",
+        "임무",
+        "부탁",
+        "할 일",
+        "quest"
+    };
+
     public NPCProfile profile;
     public NPCRelationship relationship = new NPCRelationship();
     public NPCMemory memory = new NPCMemory();
     public GameLanguage currentLanguage = GameLanguage.Korean;
+
+    [Header("Quest Dialogue")]
+    [SerializeField] private string noAvailableQuestMessage = "지금은 줄 수 있는 퀘스트가 없어.";
+    [SerializeField] private string[] questRequestKeywords = DefaultQuestRequestKeywords;
 
     [HideInInspector] public NPCInteractionTracker interactionTracker;
     [HideInInspector] public NPCQuestHandler questHandler;
@@ -59,6 +73,9 @@ public class NPCBrain : MonoBehaviour
     {
         memory.AddDialogue("Player: " + playerInput);
 
+        if (TryHandleQuestRequest(playerInput))
+            return;
+
         if (ShouldUseLocalResponse())
         {
             string local = relationship.GetLocalResponse();
@@ -81,6 +98,44 @@ public class NPCBrain : MonoBehaviour
             interactionTracker.GetDaysSinceLastConversation(),
             interactionTracker.ConsecutiveDays
         );
+    }
+
+    private bool TryHandleQuestRequest(string playerInput)
+    {
+        if (questHandler == null) return false;
+        if (!IsQuestRequest(playerInput)) return false;
+
+        if (questHandler.HasPendingProposal())
+        {
+            string proposal = questHandler.GetProposalMessage();
+            memory.AddDialogue(profile.npcName + ": " + proposal);
+            ChatUI.Instance?.OpenQuestProposal(profile.npcName, proposal);
+            return true;
+        }
+
+        ProcessResponse(noAvailableQuestMessage);
+        return true;
+    }
+
+    private bool IsQuestRequest(string playerInput)
+    {
+        if (string.IsNullOrWhiteSpace(playerInput))
+            return false;
+
+        string normalizedInput = playerInput.ToLowerInvariant();
+        if (questRequestKeywords == null || questRequestKeywords.Length == 0)
+            return false;
+
+        foreach (string keyword in questRequestKeywords)
+        {
+            if (string.IsNullOrWhiteSpace(keyword))
+                continue;
+
+            if (normalizedInput.Contains(keyword.ToLowerInvariant()))
+                return true;
+        }
+
+        return false;
     }
 
     /// <summary>

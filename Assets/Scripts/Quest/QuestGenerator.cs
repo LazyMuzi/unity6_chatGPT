@@ -11,24 +11,25 @@ public class QuestGenerator
     public QuestData GetAvailableQuest(
         QuestPool pool,
         int affinity,
-        Dictionary<string, float> lastQuestTimes)
+        Dictionary<string, double> lastQuestTimes)
     {
         if (pool == null || pool.quests == null || pool.quests.Count == 0)
             return null;
 
-        float currentTime = Time.time;
+        double currentTime = System.DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        lastQuestTimes ??= new Dictionary<string, double>();
 
         var available = pool.quests.Where(q =>
             q != null &&
             affinity >= q.minAffinity &&
             affinity <= q.maxAffinity &&
             (!lastQuestTimes.ContainsKey(q.questId) ||
-             currentTime - lastQuestTimes[q.questId] > q.cooldown)
+             currentTime - lastQuestTimes[q.questId] >= q.cooldown)
         ).ToList();
 
         if (available.Count == 0)
             return null;
 
-        return available[Random.Range(0, available.Count)];
+        return available[UnityEngine.Random.Range(0, available.Count)];
     }
 }

@@ -16,8 +16,8 @@ MonoBehaviour:
   type: 0
   description: 
   rewardAffinity: 10
-  minAffinity: 30
-  maxAffinity: 60
+  minAffinity: 40
+  maxAffinity: 90
   cooldown: 60
   requiredItem: {fileID: 11400000, guid: aa11bb22cc33dd44ee55ff6677889900, type: 2}
   requiredAmount: 1

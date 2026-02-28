@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 using UnityEngine;
 
 /// <summary>
@@ -26,7 +27,7 @@ public class NPCQuestHandler : MonoBehaviour
 
     private readonly QuestGenerator generator = new();
     private ActiveQuest activeQuest;
-    private Dictionary<string, float> lastQuestTimes = new();
+    private Dictionary<string, double> lastQuestTimes = new();
 
     private QuestData pendingProposal;
 
@@ -121,7 +122,7 @@ public class NPCQuestHandler : MonoBehaviour
         Debug.Log($"[Quest:{npcId}] Quest completed: '{data.questId}' -> affinity +{result.affinityReward}");
         brain.ModifyAffinity(result.affinityReward);
 
-        lastQuestTimes[data.questId] = Time.time;
+        lastQuestTimes[data.questId] = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         activeQuest = null;
 
         SaveQuestState();
@@ -139,6 +140,19 @@ public class NPCQuestHandler : MonoBehaviour
         return activeQuest.data.reminderMessage;
     }
 
+    /// <summary>
+    /// 활성 퀘스트의 리마인더 메시지를 UI 표시용으로 반환합니다.
+    /// </summary>
+    public bool TryGetActiveQuestReminder(out string reminderMessage)
+    {
+        reminderMessage = "";
+        if (activeQuest == null || string.IsNullOrEmpty(activeQuest.data.reminderMessage))
+            return false;
+
+        reminderMessage = activeQuest.data.reminderMessage;
+        return true;
+    }
+
     public bool HasActiveQuest => activeQuest != null;
 
     #region Save/Load
@@ -148,7 +162,7 @@ public class NPCQuestHandler : MonoBehaviour
         var result = RelationshipSaveManager.Instance.LoadQuest(npcId);
         if (result == null) return;
 
-        lastQuestTimes = result.lastQuestTimes ?? new Dictionary<string, float>();
+        lastQuestTimes = result.lastQuestTimes ?? new Dictionary<string, double>();
 
         if (!string.IsNullOrEmpty(result.activeQuestId))
         {

@@ -34,7 +34,7 @@ public class RelationshipSaveManager : MonoBehaviour
     private class QuestTimeEntry
     {
         public string questId;
-        public float time;
+        public double time;
     }
 
     [System.Serializable]
@@ -129,7 +129,7 @@ public class RelationshipSaveManager : MonoBehaviour
 
     #region Quest
 
-    public void SaveQuest(string npcId, string questId, Dictionary<string, float> lastQuestTimes)
+    public void SaveQuest(string npcId, string questId, Dictionary<string, double> lastQuestTimes)
     {
         if (string.IsNullOrEmpty(npcId)) return;
         EnsureEntry(npcId);
@@ -155,7 +155,7 @@ public class RelationshipSaveManager : MonoBehaviour
         if (string.IsNullOrEmpty(npcId) || !saveData.TryGetValue(npcId, out var data))
             return null;
 
-        var times = new Dictionary<string, float>();
+        var times = new Dictionary<string, double>();
         if (data.lastQuestTimes != null)
         {
             foreach (var e in data.lastQuestTimes)
@@ -172,7 +172,7 @@ public class RelationshipSaveManager : MonoBehaviour
     public class QuestLoadResult
     {
         public string activeQuestId;
-        public Dictionary<string, float> lastQuestTimes;
+        public Dictionary<string, double> lastQuestTimes;
     }
 
     #endregion

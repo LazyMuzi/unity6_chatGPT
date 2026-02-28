@@ -217,6 +217,11 @@ public class NPCCharacter : CharacterBase, IInteractable
             string proposal = brain.questHandler.GetProposalMessage();
             ChatUI.Instance.OpenQuestProposal(npcName, proposal);
         }
+        else if (brain.questHandler != null &&
+                 brain.questHandler.TryGetActiveQuestReminder(out string reminderMessage))
+        {
+            ChatUI.Instance.UpdateGreeting(npcName, reminderMessage);
+        }
         else
         {
             string greeting = GetTimeAwareGreeting();
