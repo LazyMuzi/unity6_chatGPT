@@ -1,39 +1,22 @@
-# ChatGPT Unity Demo
+# CPC (Character-Player Connection)
 
-A simple demo project to interact with OpenAI ChatGPT API in Unity.
+AI 기반 NPC 대화와 관계 시스템을 갖춘 힐링 라이프 시뮬레이션 프로젝트입니다.
 
-## 🚀 Features
+## Development Environment
 
-- Chat interface powered by OpenAI GPT (gpt-3.5-turbo)
-- Lightweight integration using `RestClient` and `Newtonsoft.Json`
-- Clean UI using TextMeshPro (TMP)
-- Fully asynchronous API handling
+- **Unity**: 6.0.6000.0.37f1
+- **AI Model**: GPT-4o-mini (OpenAI API)
 
-## 🧰 Development Environment
+## Dependencies
 
-- **Unity Version**: `Unity 6.0.6000.0.37f1`
+| Package | Description |
+|---|---|
+| Newtonsoft.Json | JSON 직렬화/역직렬화 |
+| RestClient (Proyecto26) | Unity용 HTTP 클라이언트 |
+| TextMeshPro | UI 텍스트 렌더링 |
+| Cinemachine | 카메라 제어 |
+| AI Navigation | NavMesh 경로 탐색 |
 
-## 📦 Dependencies
-
-| Package           | Description                                  |
-|-------------------|----------------------------------------------|
-| `Newtonsoft.Json` | JSON serialization and parsing               |
-| `RestClient`      | HTTP client for API requests in Unity        |
-| `TextMeshPro (TMP)` | Rich text rendering and UI support        |
-
-> 📦 All dependencies can be installed via Unity Package Manager or imported manually.
-
-## 🛠️ Setup
-
-1. Clone the repository.
-2. Open the project in Unity `6.0.6000.0.37f1`.
-3. Add your OpenAI API key in the appropriate field.
-4. Press Play and start chatting with AI!
-
-## 📄 License
+## License
 
 This project is licensed under the [MIT License](LICENSE).
-
----
-
-Feel free to contribute or customize it to fit your needs!
